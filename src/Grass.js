@@ -1,32 +1,38 @@
 // Based on https://codepen.io/al-ro/pen/jJJygQ by al-ro, but rewritten in react-three-fiber
 import * as THREE from "three"
 import React, { useRef, useMemo } from "react"
-import SimplexNoise from "simplex-noise"
+import { createNoise2D } from "simplex-noise"
 import { useFrame, useLoader } from "@react-three/fiber"
-import { Geometry } from "three/examples/jsm/deprecated/Geometry"
 //These have been taken from "Realistic real-time grass rendering" by Eddie Lee, 2010
 import bladeDiffuse from "./resources/blade_diffuse.jpg"
 import bladeAlpha from "./resources/blade_alpha.jpg"
 import "./GrassMaterial"
 
-const simplex = new SimplexNoise(Math.random)
+// Module-scope noise instance so getYPosition always uses the same seed
+const noise2D = createNoise2D()
+
+function useIsMobile() {
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    window.innerWidth < 768
+}
 
 export default function Grass({ options = { bW: 0.12, bH: 1, joints: 5 }, width = 100, instances = 50000, ...props }) {
   const { bW, bH, joints } = options
   const materialRef = useRef()
+  const isMobile = useIsMobile()
+  const effectiveInstances = isMobile ? Math.min(instances, 12000) : instances
   const [texture, alphaMap] = useLoader(THREE.TextureLoader, [bladeDiffuse, bladeAlpha])
-  const attributeData = useMemo(() => getAttributeData(instances, width), [instances, width])
-  const baseGeom = useMemo(() => new THREE.PlaneBufferGeometry(bW, bH, 1, joints).translate(0, bH / 2, 0), [options])
+  const attributeData = useMemo(() => getAttributeData(effectiveInstances, width), [effectiveInstances, width])
+  const baseGeom = useMemo(() => new THREE.PlaneGeometry(bW, bH, 1, joints).translate(0, bH / 2, 0), [options])
   const groundGeo = useMemo(() => {
-    const geo = new Geometry().fromBufferGeometry(new THREE.PlaneGeometry(width, width, 32, 32))
-    geo.verticesNeedUpdate = true
-    geo.lookAt(new THREE.Vector3(0, 1, 0))
-    for (let i = 0; i < geo.vertices.length; i++) {
-      const v = geo.vertices[i]
-      v.y = getYPosition(v.x, v.z)
+    const geo = new THREE.PlaneGeometry(width, width, 32, 32)
+    geo.rotateX(-Math.PI / 2)
+    const positions = geo.attributes.position
+    for (let i = 0; i < positions.count; i++) {
+      positions.setY(i, getYPosition(positions.getX(i), positions.getZ(i)))
     }
     geo.computeVertexNormals()
-    return geo.toBufferGeometry()
+    return geo
   }, [width])
   useFrame((state) => (materialRef.current.uniforms.time.value = state.clock.elapsedTime / 4))
   return (
@@ -135,8 +141,8 @@ function multiplyQuaternions(q1, q2) {
 }
 
 function getYPosition(x, z) {
-  var y = 2 * simplex.noise2D(x / 50, z / 50)
-  y += 4 * simplex.noise2D(x / 100, z / 100)
-  y += 0.2 * simplex.noise2D(x / 10, z / 10)
+  var y = 2 * noise2D(x / 50, z / 50)
+  y += 4 * noise2D(x / 100, z / 100)
+  y += 0.2 * noise2D(x / 10, z / 10)
   return y
 }

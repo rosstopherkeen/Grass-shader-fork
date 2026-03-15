@@ -36,8 +36,8 @@ const GrassMaterial = shaderMaterial(
       vec4 slerp(vec4 v0, vec4 v1, float t) {
         // Only unit quaternions are valid rotations.
         // Normalize to avoid undefined behavior.
-        normalize(v0);
-        normalize(v1);
+        v0 = normalize(v0);
+        v1 = normalize(v1);
       
         // Compute the cosine of the angle between the two vectors.
         float dot_ = dot(v0, v1);
@@ -56,7 +56,7 @@ const GrassMaterial = shaderMaterial(
           // If the inputs are too close for comfort, linearly interpolate
           // and normalize the result.
           vec4 result = t*(v1 - v0) + v0;
-          normalize(result);
+          result = normalize(result);
           return result;
         }
       
@@ -114,7 +114,7 @@ const GrassMaterial = shaderMaterial(
         gl_FragColor = col;
 
         #include <tonemapping_fragment>
-	      #include <encodings_fragment>
+        #include <colorspace_fragment>
       }`,
   (self) => {
     self.side = THREE.DoubleSide
